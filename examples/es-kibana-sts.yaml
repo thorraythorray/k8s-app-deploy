@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-headless-svc  # StatefulSet必须创建无头应用
+  labels:
+    app: es
+spec:
+  selector:
+    app: es
+  clusterIP: None  # headless重要参数
+  ports:
+  - name:  rest
+    port:  19200
+  - name: inter-node
+    port: 19300
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: es-sts
+spec:
+  selector:
+    matchLabels:
+      app: es
+  serviceName: es-headless-svc
+  replicas: 2
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: es
+    spec:
+      nodeName: leidong     #指定节点名称
+      containers:
+      - name: es
+        image: elasticsearch:7.16.2
+        ports:
+          - containerPort: 9200
+            name: rest
+            protocol: TCP
+          - name: inter-node
+            containerPort: 9300
+            protocol: TCP
+        env:
+          - name: node.name
+            value: "es-0"
+          - name: ES_JAVA_OPTS
+            value: "-Xms256m -Xmx256m"
+          - name: ELASTIC_PASSWORD
+            value: "Mjolnir"
+          - name: node.max_local_storage_nodes
+            value: "3"
+          - name: xpack.security.enabled
+            value: "true"
+          - name: discovery.seed_hosts
+            value: "192.168.1.230"
+            # value: "192.168.1.230,192.168.1.231,192.168.1.232"
+          - name: cluster.initial_master_nodes
+            value: "es-0"
+          - name: xpack.security.transport.ssl.enabled
+            value: "true"
+        volumeMounts:
+        - name: es-pvc
+          mountPath: /usr/share/elasticsearch/data
+          subPath: es/data
+      initContainers:
+        - name: increase-vm-max-map
+          image:  busybox
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+      volumes:
+      - name: es-pvc
+        persistentVolumeClaim:
+          claimName: nfs-pvc
+  # volumeClaimTemplates格式创建的pvc在delete yaml的时候保留下来
+  # volumeClaimTemplates:
+  # - metadata:
+  #     name: es-pvc
+  #   spec:
+  #     accessModes: [ "ReadWriteMany" ]
+  #     resources:
+  #       requests:
+  #         storage: 5Gi
+  #     storageClassName: nfs-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-svc
+spec:
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 15601 # k8s 集群内部访问service端口， 通过clusterip:port 请求某个service
+    nodePort: 15601 # 使用nodeIp：nodePort 从外部访问请求某个service
+    targetPort: 5601  # pod的端口，相当于expose, 可不填
+  selector:
+    app: kibana
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  labels:
+    app: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      # nodeName: k8s-node1     #指定节点名称
+      containers:
+        - name: kibana
+          image: kibana:7.16.2
+          ports:
+            - containerPort: 5601  # 容器内部端口
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://es-headless-svc:9200"
+            - name: ELASTICSEARCH_USERNAME
+              value: "elastic"
+            - name: ELASTICSEARCH_PASSWORD
+              value: "Mjolnir"
+      restartPolicy: Always

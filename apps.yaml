@@ -1,0 +1,335 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-svc
+  labels:
+    app: es
+spec:
+  selector:
+    app: es
+  type: NodePort
+  ports:
+  - name:  external
+    port: 19200 # k8s 集群内部访问service端口， 通过clusterip:port 请求某个service
+    nodePort: 19200 # 使用nodeIp：nodePort 从外部访问请求某个service
+    targetPort: 9200  # pod的端口，相当于expose, 可不填
+  - name:  inner-nodes
+    port: 19300
+    nodePort: 19300
+    targetPort: 9300  # pod的端口，相当于expose, 可不填
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: es-deploy
+spec:
+  selector:
+    matchLabels:
+      app: es
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: es
+    spec:
+      # nodeName: leidong     #指定节点名称
+      containers:
+      - name: es
+        image: elasticsearch:7.16.2
+        ports:
+          - containerPort: 9200
+            name: external
+            protocol: TCP
+          - name: inner-nodes
+            containerPort: 9300
+            protocol: TCP
+        env:
+          - name: node.name
+            value: "es-0"
+          - name: ES_JAVA_OPTS
+            value: "-Xms256m -Xmx256m"
+          - name: ELASTIC_PASSWORD
+            value: "Mjolnir"
+          - name: node.max_local_storage_nodes
+            value: "3"
+          - name: xpack.security.enabled
+            value: "true"
+          - name: discovery.seed_hosts
+            value: "192.168.1.230"
+            # value: "192.168.1.230,192.168.1.231,192.168.1.232"
+          - name: cluster.initial_master_nodes
+            value: "es-0"
+          - name: xpack.security.transport.ssl.enabled
+            value: "true"
+        volumeMounts:
+        - name: es-pvc
+          mountPath: /usr/share/elasticsearch/data
+          subPath: es/data
+      initContainers:
+        - name: increase-vm-max-map
+          image:  busybox
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+      volumes:
+      - name: es-pvc
+        persistentVolumeClaim:
+          claimName: nfs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-svc
+spec:
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 15601 # k8s 集群内部访问service端口， 通过clusterip:port 请求某个service
+    nodePort: 15601 # 使用nodeIp：nodePort 从外部访问请求某个service
+    targetPort: 5601  # pod的端口，相当于expose, 可不填
+  selector:
+    app: kibana
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  labels:
+    app: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      # nodeName: k8s-node1     #指定节点名称
+      containers:
+        - name: kibana
+          image: kibana:7.16.2
+          ports:
+            - containerPort: 5601  # 容器内部端口
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://192.168.1.99:19200"
+            - name: ELASTICSEARCH_USERNAME
+              value: "elastic"
+            - name: ELASTICSEARCH_PASSWORD
+              value: "Mjolnir"
+      restartPolicy: Always
+--- # redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-svc  # StatefulSet必须创建无头应用
+  labels:
+    app: redis
+spec:
+  selector:
+    app: redis
+  type: NodePort
+  ports:
+  - name: external
+    port: 16379 # k8s 集群内部访问service端口， 通过clusterip:port 请求某个service
+    nodePort: 16379 # 使用nodeIp：nodePort 从外部访问请求某个service
+    targetPort: 6379  # pod的端口，相当于expose, 可不填
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  # serviceName: redis-headless-svc
+  replicas: 1
+  # updateStrategy:
+  #   type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:5.0.7
+        ports:
+          - containerPort: 6379  # 容器内部端口
+            name: external
+            protocol: TCP
+        command: ["redis-server", "--requirepass", "Mjolnir"]
+        volumeMounts:
+          - name: redis-pvc
+            mountPath: /var/lib/redis
+            subPath: redis/data
+      volumes:
+      - name: redis-pvc
+        persistentVolumeClaim:
+          claimName: nfs-pvc
+---  # mysql
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-svc  # StatefulSet必须创建无头应用
+  labels:
+    app: mysql
+spec:
+  selector:
+    app: mysql
+  type: NodePort
+  ports:
+  - name: sock
+    port: 13306
+    nodePort: 13306
+    targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  # serviceName: mysql-headless-svc
+  replicas: 1
+  # updateStrategy:
+  #   type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+          - containerPort: 3306  # 容器内部端口
+            name: sock
+            protocol: TCP
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: 'Mjolnir'
+          - name: MYSQL_DEFAULT_AUTHENTICATION_PLUGIN
+            value: "mysql_native_password"
+        args: ["--sql-mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"]
+        volumeMounts:
+          - name: time-zone
+            mountPath: /etc/localtime
+          - name: mysql-pvc
+            mountPath: /var/lib/mysql
+            subPath: mysql/data
+      restartPolicy: Always
+      volumes:
+      - name: time-zone
+        hostPath:
+          path: /etc/localtime
+      - name: mysql-pvc
+        persistentVolumeClaim:
+          claimName: nfs-pvc
+--- # rabbitmq sts
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-svc  # StatefulSet必须创建无头应用
+  labels:
+    app: rabbitmq
+spec:
+  selector:
+    app: rabbitmq
+  type: NodePort
+  ports:
+  - name: sock
+    port: 56722
+    nodePort: 56722
+    targetPort: 5672
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    matchLabels:
+      app: rabbitmq
+  # serviceName: rabbitmq-headless-svc
+  replicas: 1
+  # updateStrategy:
+  #   type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.8.2
+          ports:
+            - containerPort: 5672  # 容器内部端口
+              name: sock
+              protocol: TCP
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: "admin"
+            - name: RABBITMQ_DEFAULT_PASS
+              value: "Mjolnir"
+            - name: RABBITMQ_DEFAULT_VHOST
+              value: "engine"
+          volumeMounts:
+            - name: rabbitmq-pvc
+              mountPath: /var/lib/rabbitmq
+              subPath: rabbitmq/data
+      restartPolicy: Always
+      volumes:
+        - name: rabbitmq-pvc
+          persistentVolumeClaim:
+            claimName: nfs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-svc  # StatefulSet必须创建无头应用
+  labels:
+    app: mongo
+spec:
+  selector:
+    app: mongo
+  type: NodePort
+  ports:
+  - name: sock
+    port: 27017
+    nodePort: 27017
+    targetPort: 27017
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:4.2
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-pvc
+              mountPath: /var/lib/mongodb
+              subPath: mongo/data
+      restartPolicy: Always
+      volumes:
+        - name: mongo-pvc
+          persistentVolumeClaim:
+            claimName: nfs-pvc
