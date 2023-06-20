@@ -10,4 +10,5 @@ else
     curl https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add
     apt update
     apt install -y kubeadm=1.26.3-00
+    cp config/kubeadm.yaml /etc/kubernetes/
 fi

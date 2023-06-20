@@ -49,5 +49,5 @@ kind: JoinConfiguration
 nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   imagePullPolicy: IfNotPresent
-  name: leidong
+  name: kube-node
   taints: null

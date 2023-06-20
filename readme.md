@@ -1,17 +1,29 @@
 ## 部署安装
 ##### 安装k8s
 ```
-bash install/k8s_setup.sh
+bash src/k8s_setup.sh
+```
+
+##### 初始化
+```
+kubeadm --config config/kubeadm.yaml init
 ```
 
 ##### 安装网络插件
 ```
-kubectl apply -f install/kube-flannel.yml
+kubectl apply -f config/kube-flannel.yml
 ```
 
-##### 配置各节点,註意替換node_join.sh中的join秘鑰
+
+
+##### 配置各节点,註意替換node_join.sh中的join秘钥
 ```
-bash install/k8s_cluster_setup.sh cluster_ip
+bash src/k8s_cluster_setup.sh cluster_ip
+```
+
+#### 重新生成join token
+```
+kubeadm token create --print-join-command
 ```
 
 ##### 启动
