@@ -45,7 +45,7 @@ function join_cluster() {
         modprobe br_netfilter
         echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables
         echo 1 > /proc/sys/net/ipv4/ip_forward
-        # 替换
+        # TODO 替换token
         kubeadm join 192.168.1.99:6443 --token abcdef.0123456789abcdef \
         --discovery-token-ca-cert-hash sha256:599d194171448604aa2c3668910c95b8c43a2e19b22c1a54c83a30bd8fb1a477
     fi

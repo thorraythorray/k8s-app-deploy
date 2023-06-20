@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:4.2
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-pvc
+              mountPath: /var/lib/mongodb
+              subPath: mongo/data
+      restartPolicy: Always
+      volumes:
+        - name: mongo-pvc
+          persistentVolumeClaim:
+            claimName: nfs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-svc  # StatefulSet必须创建无头应用
+  labels:
+    app: mongo
+spec:
+  selector:
+    app: mongo
+  type: NodePort
+  ports:
+  - name: sock
+    port: 27017
+    nodePort: 27017
+    targetPort: 27017
