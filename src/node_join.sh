@@ -18,10 +18,6 @@ function check_node_env() {
         apt install -y kubeadm=1.26.3-00
     fi
 
-    if [ -e "/root/kubeadm.yaml" && ! -e $KUBE_CONFIG_PATH/kubeadm.yaml ]; then
-        cp /root/admin.conf /root/kubeadm.yaml $KUBE_CONFIG_PATH/
-    fi
-
     env | grep "KUBECONFIG"
     if [ $? != 0 ]; then
         echo "export KUBECONFIG=/etc/kubernetes/admin.conf" > /etc/profile.d/kubeconfig.sh
@@ -45,15 +41,18 @@ function join_cluster() {
         modprobe br_netfilter
         echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables
         echo 1 > /proc/sys/net/ipv4/ip_forward
+
+        kubeadm reset
         # TODO 替换token
         kubeadm join 192.168.1.99:6443 --token abcdef.0123456789abcdef \
-        --discovery-token-ca-cert-hash sha256:599d194171448604aa2c3668910c95b8c43a2e19b22c1a54c83a30bd8fb1a477
+        --discovery-token-ca-cert-hash sha256:5a68e2973fc3844e2e029da2cca3a06dd654316515a3ba8b0a03a92a3a111cb3
     fi
     echo "$NODE_IP joine done!"
 }
 
 
 function main() {
+    cp /root/admin.conf /root/kubeadm.yaml $KUBE_CONFIG_PATH/
     check_node_env
     join_cluster
 }

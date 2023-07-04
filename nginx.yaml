@@ -9,8 +9,9 @@ data:
         server {
             listen       443 ssl;
             client_max_body_size 100m;
-            ssl_certificate      /etc/tls/tls.crt;  # kubectl create secret tls会改变源文件名字
-            ssl_certificate_key  /etc/tls/tls.key;  # kubectl create secret tls会改变源文件名字
+            # master: cd /root/ssl && kubectl create secret tls tls-secret --key server-key.pem --cert server-cert.pem
+            ssl_certificate      /etc/tls/tls.crt;  # 不要改名字，tls.crt是secret类型的默认名字
+            ssl_certificate_key  /etc/tls/tls.key;  # 不要改名字，tls.key是secret类型的默认名字
             proxy_ignore_client_abort on;
 
             location / {
@@ -22,30 +23,6 @@ data:
               proxy_redirect off;
               proxy_pass http://192.168.1.99:80;
             }
-
-            # root /opt/ui;
-            # location ^~ /v1 {
-            #     proxy_read_timeout 300;
-            #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            #     proxy_set_header Host $host;
-            #     proxy_set_header X-Real-IP $remote_addr;
-            #     proxy_set_header X-Scheme $scheme;
-            #     proxy_redirect off;
-            #     proxy_pass http://192.168.1.99:5005;
-            #   }
-
-            # location /socket.io {
-            #     proxy_http_version 1.1;
-            #     proxy_buffering off;
-            #     proxy_read_timeout 300s;
-            #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            #     proxy_set_header Host $host;
-            #     proxy_set_header X-Real-IP $remote_addr;
-            #     proxy_set_header X-Scheme $scheme;
-            #     proxy_set_header Upgrade $http_upgrade;
-            #     proxy_set_header Connection "Upgrade";
-            #     proxy_pass http://192.168.1.99:9527/socket.io;
-            # }
         }
 ---
 apiVersion: v1

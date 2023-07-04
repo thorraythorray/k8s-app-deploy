@@ -16,7 +16,7 @@ kubectl apply -f config/kube-flannel.yml
 
 ##### 配置各节点,註意替換node_join.sh中的join秘钥
 ```
-bash src/k8s_cluster_setup.sh cluster_ip
+bash src/k8s_cluster_setup.sh 192.168.1.22
 ```
 
 #### 重新生成join token
@@ -26,13 +26,20 @@ kubeadm token create --print-join-command
 
 ##### 启动
 ```
-kubectl apply -f rbac.yaml -f nfs-pv.yaml -f apps.yaml -f nginx.yaml
+kubectl apply -f rbac.yaml 
+kubectl apply -f nfs-pv.yaml 
+kubectl apply -f apps.yaml -f nginx.yaml
+```
+
+##### 部署https nginx configmap
+```
+# 主节点生成的server-key.pem server-cert.pem,用configmap会自动改名为tls.pem,tls.key
+cd /root/ssl && kubectl create secret tls tls-secret --key server-key.pem --cert server-cert.pem
 ```
 
 ##### cert过期查看
 ```
 kubeadm certs check-expiration
-
 ```
 
 ## 问题（持续更新）

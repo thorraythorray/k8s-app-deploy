@@ -49,5 +49,5 @@ kind: JoinConfiguration
 nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   imagePullPolicy: IfNotPresent
-  name: kube-node
+  # name: kube-node_3  # 节点的名字是按照hostname命名，此参数可否不填
   taints: null
