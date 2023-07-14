@@ -108,5 +108,5 @@ nfs无挂载权限
 ```
 #添加no_root_squash权限
 vim /etc/exports
-/mnt/share 192.168.1.230(rw,sync,no_subtree_check,no_root_squash)
+/nfs/assess 192.168.1.230(rw,sync,no_subtree_check,no_root_squash)
 ```

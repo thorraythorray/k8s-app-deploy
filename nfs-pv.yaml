@@ -30,12 +30,12 @@ spec:
             - name: NFS_SERVER
               value: 192.168.1.99
             - name: NFS_PATH
-              value: /mnt/share
+              value: /nfs/assess
       volumes:
         - name: nfs-client
           nfs:
             server: 192.168.1.99
-            path: /mnt/share
+            path: /nfs/assess
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
