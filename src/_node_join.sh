@@ -45,7 +45,7 @@ function join_cluster() {
         kubeadm reset
         # TODO 替换token
         kubeadm join 192.168.1.99:6443 --token abcdef.0123456789abcdef \
-        --discovery-token-ca-cert-hash sha256:5a68e2973fc3844e2e029da2cca3a06dd654316515a3ba8b0a03a92a3a111cb3
+        --discovery-token-ca-cert-hash sha256:a61e41f3971e221d5e1050ee8c2d9d91a12535dcad0f31b251a3642c5c8403b2
     fi
     echo "$NODE_IP joine done!"
 }
